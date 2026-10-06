@@ -43,7 +43,9 @@ function helpers.FIND_PLAYER()
         end
     end)
     --found player
-    if helpers.IS_VALID(player) then return player end
+    if helpers.IS_VALID(player) then
+        return player
+    end
     
 
     --2 attempt
@@ -52,7 +54,9 @@ function helpers.FIND_PLAYER()
     end)
 
     --found player
-    if helpers.IS_VALID(player) then return player end
+    if helpers.IS_VALID(player) then   
+        return player
+    end
 
 
     --3 attempt

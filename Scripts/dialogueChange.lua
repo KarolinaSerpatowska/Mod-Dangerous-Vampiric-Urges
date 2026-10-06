@@ -58,7 +58,10 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
         pcall(function()
             eatingOption.bForceHungerLevel = true 
             eatingOption.ReplacementMode = replacementMode
-            eatingOption.ForcedHungerLevel = dialogueOptionEffectIntensity 
+            eatingOption.ForcedHungerLevel = dialogueOptionEffectIntensity
+            if config.disableForcefulEating then --if disable forcefull eating
+                eatingOption.DisplayMode = 1
+            end
         end)
         
     end
@@ -76,10 +79,6 @@ function dialogue.DIALOGUE_STARTED()
     
     helpers.PRINT_MSG("On dialogue start")
     dialogue.inDialogue = true
-
-    --testing forcefull eating AAAAAND it doesn't work xD
-    --MOD_CONFIG.currentHungerLvl = 2
-    --CHANGE_HUNGER_LVL()
 
     if config.isChangingDialogue then
         dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
@@ -109,6 +108,10 @@ return dialogue
 --Function /Script/DogwoodUI.CinematicDialogueChoiceLineWidget:InitializeChoice
 --Function /Script/DogwoodUI.CinematicDialogueChoiceWidget:ShowChoices
 --Function /Script/DogwoodUI.CinematicDialogueChoiceWidget:GetChoiceLines
+
+-- /Game/_Dawnwalker/Player/BP_PlayerCharacter.BP_PlayerCharacter_C:On Dialogue Started = replacement for dialogue? didn't test
+
+---Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnVampireUrgeForced
 
 --this resets dialogue options to white default options; how to refresh this easily without saving?
 --pcall(function()
