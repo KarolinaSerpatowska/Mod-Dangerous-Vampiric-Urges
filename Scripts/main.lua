@@ -11,6 +11,7 @@ helpers = require("helperFunc")
 config = require("config")
 dialogue = require("dialogueChange")
 hungerHP = require("hungerSystemHP")
+customHungerSystem = require("customHungerWithBar")
 
 
 player = nil
@@ -28,8 +29,21 @@ local function RUN_ONCE_PER_TICK()
             if helpers.IS_VALID(player) then
                 helpers.PRINT_MSG("Found player in tick")
                 helpers.CHECK_VAMPIRE(player)
+                
+                --hunger bar
+                if config.customHungerSystem then
+                    customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+                    customHungerSystem.SPAWN_HUNGER_BAR()
+                end
 
         else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
+        end
+
+
+        -- spawn hunger bar if not valid
+        if config.customHungerSystem and helpers.IS_VALID(player) and not helpers.IS_VALID(customHungerSystem.hungerBarWidget) then
+            customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+            customHungerSystem.SPAWN_HUNGER_BAR()
         end
 
 end
@@ -162,9 +176,18 @@ local function SETUP()
         end)
     end
 
-    -- only when custom hp % threshold for hunger
-    if config.customHungerHPThreshold then
-        helpers.PRINT_MSG("CUSTOM HUNGER LVL:HP ENABLED")
+
+    -- spawn UI hunger bar when enabled
+    if config.customHungerSystem then
+        customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+        customHungerSystem.SPAWN_HUNGER_BAR()
+
+    end
+
+
+    -- only when custom hp % threshold for hunger OR custom hunger
+    if config.customHungerHPThreshold or config.customHungerSystem then
+        helpers.PRINT_MSG("CUSTOM HUNGER LVL:HP OR CUSTOM HUNGER ENABLED")
         -- this fires AFTER setting bloodbar
         --this is called by /Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged
         pcall(function()
@@ -178,6 +201,8 @@ local function SETUP()
             end)
         end)
 
+        
+       
         pcall(function()
             RegisterHook("/Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged", function() helpers.PRINT_MSG("ON BLOOD PRE") end, function() helpers.PRINT_MSG("ON BLOOD POST") hungerHP.ON_BLOOD_BAR_SETTING() end)
         end)
@@ -256,6 +281,11 @@ pcall(function()
         hungerHP.GA_hunger = nil
         hungerHP.player = nil
 
+        customHungerSystem.hungerBarWidget = nil
+       
+
+
+
         --main menu is back
         if helpers.IS_MAIN_MENU_PRESENT() and tickHandle ~= nil then    
             --stop ticking
@@ -278,6 +308,13 @@ pcall(function()
                         player = controller.Pawn
                         hungerHP.player = player
                         helpers.CHECK_VAMPIRE(player)
+
+                        -- spawn UI hunger bar when enabled
+                        if config.customHungerSystem then
+                            customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+                            customHungerSystem.SPAWN_HUNGER_BAR()
+                        end
+
                         -- start mod/tick 
                         tickHandle = MakeActionHandle()
                         ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)

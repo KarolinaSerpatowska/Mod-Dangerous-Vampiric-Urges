@@ -53,7 +53,7 @@ config.disableForcefulEating = false
 -- CUSTOM HUNGER THRESHOLD, BASED ON CURRENT HP %
 ------------------------------------------------------------
 -- true - enable custom hunger level threshold, based on current hp %; false - vanilla, mod doesn't change hunger
-config.customHungerHPThreshold = true
+config.customHungerHPThreshold = false
 
 -- true - use always the same percent thresholds and ignore number of hp segments, WILL USE THRESHOLDS FOR 2 SEGMENTS; false - use different thresholds, based on current number of hp segments
 config.oneThresholdForEverySegment = false
@@ -85,7 +85,10 @@ config.FIVE_SEGMENTS_PERCENTS = {
     high = 40.0
 }
 
-
+------------------------------------------------------------
+-- CUSTOM HUNGER SYSTEM WITH BAR
+------------------------------------------------------------
+config.customHungerSystem = true
 
 
 
@@ -97,7 +100,7 @@ config.FIVE_SEGMENTS_PERCENTS = {
 -- delay between ticks
 config.tickMs = 1000
 -- true - SPAM debug messeges everywhere
-config.debug = false
+config.debug = true
 
 
 return config
