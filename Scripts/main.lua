@@ -23,28 +23,17 @@ player = nil
 
 local function RUN_ONCE_PER_TICK()
     --find player if not valid
-        if not helpers.IS_VALID(player) then
-            player = helpers.FIND_PLAYER()
-            hungerHP.player = player
-            if helpers.IS_VALID(player) then
-                helpers.PRINT_MSG("Found player in tick")
-                helpers.CHECK_VAMPIRE(player)
-                
-                --hunger bar
-                if config.customHungerSystem then
-                    customHungerSystem.LOAD_HUNGER_BAR_ASSET()
-                    customHungerSystem.SPAWN_HUNGER_BAR()
-                end
+    if not helpers.IS_VALID(player) then
+        player = helpers.FIND_PLAYER()
+        hungerHP.player = player
+        if helpers.IS_VALID(player) then
+            helpers.PRINT_MSG("Found player in tick")
+            helpers.CHECK_VAMPIRE(player)
+
 
         else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
-        end
-
-
-        -- spawn hunger bar if not valid
-        if config.customHungerSystem and helpers.IS_VALID(player) and not helpers.IS_VALID(customHungerSystem.hungerBarWidget) then
-            customHungerSystem.LOAD_HUNGER_BAR_ASSET()
-            customHungerSystem.SPAWN_HUNGER_BAR()
-        end
+    end 
+    
 
 end
 
@@ -69,6 +58,7 @@ local function DEBUG_BUTTONS()
             local SetOK, SetErr = pcall(function()
                 player.BloodBar:SetBloodPercent(TargetBloodPercent)
                 hungerHP.ON_BLOOD_BAR_SETTING()
+                
             end)
 
         end)
@@ -91,8 +81,15 @@ local function DEBUG_BUTTONS()
                TargetBloodPercent = 0.50   -- 1.0 = 100%
 
             local SetOK, SetErr = pcall(function()
+
+              
+
+
+
+
+
                 player.BloodBar:SetBloodPercent(TargetBloodPercent)
-                hungerHP.ON_BLOOD_BAR_SETTING()
+               hungerHP.ON_BLOOD_BAR_SETTING()
             end)
 
 
@@ -113,9 +110,17 @@ local function DEBUG_BUTTONS()
                TargetBloodPercent = 1.0   -- 1.0 = 100%
 
             local SetOK, SetErr = pcall(function()
-                player.BloodBar:SetBloodPercent(TargetBloodPercent)
-                hungerHP.ON_BLOOD_BAR_SETTING()
+               
+
+                helpers.PRINT_MSG("BUTTON?")
+                
+                    player.BloodBar:SetBloodPercent(TargetBloodPercent)
+                    hungerHP.ON_BLOOD_BAR_SETTING()
+
             end)
+
+            helpers.PRINT_MSG(SetOK)
+            helpers.PRINT_MSG(SetErr)
                
 
             end)
@@ -140,6 +145,13 @@ local function SETUP()
     pcall(function()
         RegisterHook("/Game/_Dawnwalker/Player/BP_PlayerCharacter.BP_PlayerCharacter_C:On Night Started", function() helpers.PRINT_MSG("ON NIGHT STARTED") 
             helpers.CHECK_VAMPIRE(player)
+            
+            
+            --init hunger bar
+            if config.customHungerSystem then
+                customHungerSystem.INIT_HUNGER_BAR(player)
+
+            end
             
          end)
     end)
@@ -177,12 +189,7 @@ local function SETUP()
     end
 
 
-    -- spawn UI hunger bar when enabled
-    if config.customHungerSystem then
-        customHungerSystem.LOAD_HUNGER_BAR_ASSET()
-        customHungerSystem.SPAWN_HUNGER_BAR()
 
-    end
 
 
     -- only when custom hp % threshold for hunger OR custom hunger
@@ -192,53 +199,67 @@ local function SETUP()
         --this is called by /Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged
         pcall(function()
             RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:OnVampireHungerLevelChanged", function(self, hung) helpers.PRINT_MSG("DawnwalkerPlayerCharacter:OnVampireHungerLevelChanged pre")
+                
                 helpers.PRINT_MSG(hung:get())
                 if not helpers.isVampire then return end --player is human
-                hung:set(hungerHP.currentHungerLvl) --replace games hunger with current, but kind doesn't do anything?
+                
+                --hunger custom HP
+                if config.customHungerHPThreshold then
+                    hung:set(hungerHP.currentHungerLvl) --replace games hunger with current, but kind doesn't do anything?
+                end
+            
             end, 
             function()
                 helpers.PRINT_MSG("DawnwalkerPlayerCharacter:OnVampireHungerLevelChanged post")
+
+
+ 
+
+
             end)
         end)
 
         
        
         pcall(function()
-            RegisterHook("/Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged", function() helpers.PRINT_MSG("ON BLOOD PRE") end, function() helpers.PRINT_MSG("ON BLOOD POST") hungerHP.ON_BLOOD_BAR_SETTING() end)
+            RegisterHook("/Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged", function() return end, function() helpers.PRINT_MSG("ON BLOOD POST") 
+                
+                if config.customHungerHPThreshold then
+                    hungerHP.ON_BLOOD_BAR_SETTING() 
+                end
+
+
+                --init hunger bar
+                if config.customHungerSystem then
+                    customHungerSystem.INIT_HUNGER_BAR(player)
+
+                end
+
+
+            end)
         end)
         
         --this sets hunger vfx and audio to hunger lvl
         pcall(function()
             RegisterHook("/Game/_Dawnwalker/Player/VampireHunger/GA_VampireHunger.GA_VampireHunger_C:Calculate Valid Hunger Effects", 
             function(context, hungA, hungB) 
-                helpers.PRINT_MSG("GA_hunger: pre vfx calculate")
-                hungerHP.DEAL_WITH_HUNGER_VISUALS(hungA, hungB)
+
+                if config.customHungerHPThreshold then
+                    helpers.PRINT_MSG("GA_hunger: pre vfx calculate")
+                    hungerHP.DEAL_WITH_HUNGER_VISUALS(hungA, hungB)
+                end
+
             end,
             function() return end)
         end)
+
+
+
+
+
+
     end
 
-
-    --NEVER AGAIN STUPID BP'S
-    local debugBP = false
-    if debugBP then
-        --WHY??????????..................
-        pcall(function() RegisterHook("/Game/_Dawnwalker/Player/VampireHunger/GA_VampireHunger.GA_VampireHunger_C:ExecuteUbergraph_GA_VampireHunger", function(self, EntryPoint)
-        -- This fires for EVERY event inside this blueprint.
-        print("Ubergraph triggered at ID: " .. tostring(EntryPoint:get()))
-        --3137
-        --3707 mine?
-        --2481
-        --2354 from game high?
-        if EntryPoint:get() == 2354 then
-            helpers.PRINT_MSG("GA_hunger 2354 caught via Ubergraph")
-        end
-
-        if EntryPoint:get() == 3707 then
-            helpers.PRINT_MSG("GA_hunger 3707 caught via Ubergraph")
-        end
-        end, function() return end) end)
-    end
 
 end
 
@@ -260,11 +281,6 @@ end
 ------------------------------------------------------------
 print("[Dangerous Vampiric Urges] Mod loaded")
 
-helpers.PRINT_MSG(string.format(
-    "Tick=%dms | Debug=%s",
-    config.tickMs,
-    tostring(config.debug)
-))
 ------------------------------------------------------------
 -- RESET AT RELOAD
 ------------------------------------------------------------
@@ -281,10 +297,10 @@ pcall(function()
         hungerHP.GA_hunger = nil
         hungerHP.player = nil
 
-        customHungerSystem.hungerBarWidget = nil
-       
 
-
+        if config.customHungerSystem then
+            customHungerSystem.REMOVE_FROM_VIEWPORT()
+        end
 
         --main menu is back
         if helpers.IS_MAIN_MENU_PRESENT() and tickHandle ~= nil then    
@@ -301,6 +317,7 @@ pcall(function()
                     if isGameReady then return end
                     failsafe = failsafe + 1
                     local controller = UEHelpers.GetPlayerController()
+                    
                     if helpers.IS_VALID(controller) and helpers.IS_VALID(controller.Pawn) and helpers.IS_PLAYER_PAWN(controller.Pawn) then
                         isGameReady = true
                         helpers.PRINT_MSG("Game ready")
@@ -308,13 +325,6 @@ pcall(function()
                         player = controller.Pawn
                         hungerHP.player = player
                         helpers.CHECK_VAMPIRE(player)
-
-                        -- spawn UI hunger bar when enabled
-                        if config.customHungerSystem then
-                            customHungerSystem.LOAD_HUNGER_BAR_ASSET()
-                            customHungerSystem.SPAWN_HUNGER_BAR()
-                        end
-
                         -- start mod/tick 
                         tickHandle = MakeActionHandle()
                         ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)
@@ -337,6 +347,20 @@ pcall(function()
 
     end)
 end)
+
+
+
+--hunger bar add to UI
+if config.customHungerSystem then
+        --hunger bar UI
+        NotifyOnNewObject("/Game/_Dawnwalker/UI/_Unified/HUD/WBP_GameHUD.WBP_GameHUD_C", function(hud)
+        ExecuteInGameThread(function()
+            customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+            customHungerSystem.SPAWN_HUNGER_BAR()
+            customHungerSystem.ON_HUD()
+        end)
+    end)
+end
 
 
 --wait for game to be ready = loaded etc.
@@ -382,3 +406,6 @@ end)
 --Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStarted
+
+
+

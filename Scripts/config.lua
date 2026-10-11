@@ -29,7 +29,7 @@ config.isChangingDialogue = true
     
 -- change dialogue options to this settings when on LOW hunger
 config.LOW_HUNGER_DIALOGUE = {
-    replacementMode = 0,
+    replacementMode = 2,
     dialogueOptionEffectIntensity = 2
 }
 
@@ -41,7 +41,7 @@ config.MEDIUM_HUNGER_DIALOGUE = {
 
 -- change dialogue options to this settings when on HIGH hunger
 config.HIGH_HUNGER_DIALOGUE = {
-    replacementMode = 0,
+    replacementMode = 2,
     dialogueOptionEffectIntensity = 2
 }
 
