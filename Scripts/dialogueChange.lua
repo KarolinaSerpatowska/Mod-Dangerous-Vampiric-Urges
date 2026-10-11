@@ -4,6 +4,8 @@ dialogue.inDialogue = false
 
 helpers = require("helperFunc")
 config = require("config")
+
+local choicesCount = 0
 ------------------------------------------------------------
 -- CHANGE EATING DIALOGUE OPTION
 --eatingOption.bForceHungerLevel; needs to be true for working intensity change
@@ -17,7 +19,11 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
         return false
     end
 
+    helpers.PRINT_MSG("Changing dialogue function start")
+
     helpers.FIND_HUNGER_SYS()
+
+    helpers.PRINT_MSG("Changing dialogue after find hunger sys")
 
     -- 0 vanilla - always visible when vampire; 1 replaces only previous option but also changes back to normal dialogue option; 2 -- random replacement (all dialogue options)
     local replacementMode
@@ -56,9 +62,17 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
    
     for _, eatingOption in ipairs(dialogueOptions) do
         pcall(function()
-            eatingOption.bForceHungerLevel = true 
-            eatingOption.ReplacementMode = replacementMode
+            --if more then 1, then change dialogue replacement (random etc.)
+            if choicesCount > 1 and eatingOption.ReplacementMode ~= replacementMode then
+                eatingOption.ReplacementMode = replacementMode
+            else 
+                helpers.PRINT_MSG("1 option is present, no rand replacement changing")
+                eatingOption.ReplacementMode = 0
+            end
+
+            eatingOption.bForceHungerLevel = true
             eatingOption.ForcedHungerLevel = dialogueOptionEffectIntensity
+            
             if config.disableForcefulEating then --if disable forcefull eating
                 eatingOption.DisplayMode = 1
             end
@@ -75,14 +89,23 @@ end
 ------------------------------------------------------------
 
 function dialogue.DIALOGUE_STARTED()
-    if not helpers.isVampire then return end --player is human
+    --return happens sometimes here?
+    if not helpers.isVampire then  helpers.PRINT_MSG("Dialogue player is human" ) return end --player is human
     
-    helpers.PRINT_MSG("On dialogue start")
+    --count how many dialogue options you have
+    choicesCount = choicesCount + 1
+
+    helpers.PRINT_MSG(string.format("choices count: %d", choicesCount))
+
+    helpers.PRINT_MSG("On dialogue choice")
     dialogue.inDialogue = true
+
+   
 
     if config.isChangingDialogue then
         dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
     end
+
 
 end
 
@@ -96,6 +119,12 @@ function dialogue.DIALOGUE_ENDED()
     helpers.PRINT_MSG("On dialogue end")
     dialogue.inDialogue = false
 
+    --reset dialogue choices count
+    choicesCount = 0
+end
+
+function dialogue.ON_RESET()
+    choicesCount = 0
 end
 
 

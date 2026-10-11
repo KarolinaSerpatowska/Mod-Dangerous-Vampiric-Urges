@@ -1,5 +1,5 @@
 --[[
-    Dangerous Vampiric Urges v0.6
+    Dangerous Vampiric Urges v0.6.1
 	Mod changes how 'give in to hunger' dialogue option is presented on screen. For example you can set it, to replace random dialogue option (like in prologue).
 	Currently displaying is based on hunger lvl. If some other hunger system(mod) is supposed to work with this, then it needs to change game's hunger lvl. Any other external systems won't change dialogue. 
 	Doesn't (and shouldn't) affect any other game functionality.
@@ -29,6 +29,11 @@ local function RUN_ONCE_PER_TICK()
         if helpers.IS_VALID(player) then
             helpers.PRINT_MSG("Found player in tick")
             helpers.CHECK_VAMPIRE(player)
+
+            if config.customHungerSystem then
+                
+                customHungerSystem.INIT_HUNGER_BAR(player)
+            end
 
 
         else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
@@ -179,18 +184,19 @@ local function SETUP()
     --dialogue changing
     if config.isChangingDialogue then
         helpers.PRINT_MSG("CHANGING DIALOGUES ENABLED")
-        pcall(function()
-            RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:CallOnCinematicModeStarted", function() helpers.PRINT_MSG("DIALOGUE STARTED") dialogue.DIALOGUE_STARTED() end)
-        end)
+        --pcall(function()
+        --    RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:CallOnCinematicModeStarted", function() helpers.PRINT_MSG("DIALOGUE STARTED") dialogue.DIALOGUE_STARTED() end)
+        --end)
         
         pcall(function()
             RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:CallOnCinematicModeEnded", function() helpers.PRINT_MSG("DIALOGUE ENDED") dialogue.DIALOGUE_ENDED() end)
         end)
+
+         pcall(function()
+            RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceLineWidget:SetupChoice", function() helpers.PRINT_MSG("DIALOGUE CHOICE SAFETY") dialogue.DIALOGUE_STARTED() end)
+        end)
+
     end
-
-
-
-
 
     -- only when custom hp % threshold for hunger OR custom hunger
     if config.customHungerHPThreshold or config.customHungerSystem then
@@ -292,11 +298,11 @@ pcall(function()
         player = nil
         helpers.isVampire = false
         dialogue.inDialogue = false
+        dialogue.ON_RESET()
         helpers.hungerSystem = nil
         hungerHP.currentHungerLvl = 0
         hungerHP.GA_hunger = nil
         hungerHP.player = nil
-
 
         if config.customHungerSystem then
             customHungerSystem.REMOVE_FROM_VIEWPORT()
@@ -325,6 +331,7 @@ pcall(function()
                         player = controller.Pawn
                         hungerHP.player = player
                         helpers.CHECK_VAMPIRE(player)
+
                         -- start mod/tick 
                         tickHandle = MakeActionHandle()
                         ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)
@@ -355,9 +362,16 @@ if config.customHungerSystem then
         --hunger bar UI
         NotifyOnNewObject("/Game/_Dawnwalker/UI/_Unified/HUD/WBP_GameHUD.WBP_GameHUD_C", function(hud)
         ExecuteInGameThread(function()
+            helpers.PRINT_MSG("Init hunger widget starting")
+            --init widget stuff
             customHungerSystem.LOAD_HUNGER_BAR_ASSET()
             customHungerSystem.SPAWN_HUNGER_BAR()
             customHungerSystem.ON_HUD()
+
+             if helpers.IS_VALID(player) then
+                customHungerSystem.INIT_HUNGER_BAR(player)
+            end
+            
         end)
     end)
 end

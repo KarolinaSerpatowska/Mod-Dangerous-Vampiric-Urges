@@ -117,7 +117,7 @@ end
 -- FIND HUNGER SYSTEM
 ------------------------------------------------------------
 function helpers.FIND_HUNGER_SYS()
-    if helpers.IS_VALID(helpers.hungerSystem) then return end
+    if helpers.IS_VALID(helpers.hungerSystem) then  helpers.PRINT_MSG("Hunger sys valid no need for looking") return end
     pcall(function() 
         helpers.hungerSystem = FindFirstOf("VampireHungerSubsystem")
     end)

@@ -1,5 +1,5 @@
 --[[
-    Dangerous Vampiric Urges v0.6
+    Dangerous Vampiric Urges v0.6.1
 	Mod changes how 'give in to hunger' dialogue option is presented on screen. For example you can set it, to replace random dialogue option (like in prologue).
 	Currently displaying is based on hunger lvl. If some other hunger system(mod) is supposed to work with this, then it needs to change game's hunger lvl. Any other external systems won't change dialogue. 
 	Doesn't (and shouldn't) affect any other game functionality.
@@ -29,14 +29,14 @@ config.isChangingDialogue = true
     
 -- change dialogue options to this settings when on LOW hunger
 config.LOW_HUNGER_DIALOGUE = {
-    replacementMode = 2,
-    dialogueOptionEffectIntensity = 2
+    replacementMode = 0,
+    dialogueOptionEffectIntensity = 0
 }
 
 -- change dialogue options to this settings when on MEDIUM hunger 
 config.MEDIUM_HUNGER_DIALOGUE = {
     replacementMode = 2,
-    dialogueOptionEffectIntensity = 2
+    dialogueOptionEffectIntensity = 1
 }
 
 -- change dialogue options to this settings when on HIGH hunger
@@ -53,7 +53,7 @@ config.disableForcefulEating = false
 -- CUSTOM HUNGER THRESHOLD, BASED ON CURRENT HP %
 ------------------------------------------------------------
 -- true - enable custom hunger level threshold, based on current hp %; false - vanilla, mod doesn't change hunger
-config.customHungerHPThreshold = false
+config.customHungerHPThreshold = true
 
 -- true - use always the same percent thresholds and ignore number of hp segments, WILL USE THRESHOLDS FOR 2 SEGMENTS; false - use different thresholds, based on current number of hp segments
 config.oneThresholdForEverySegment = false
@@ -86,9 +86,9 @@ config.FIVE_SEGMENTS_PERCENTS = {
 }
 
 ------------------------------------------------------------
--- CUSTOM HUNGER SYSTEM WITH BAR
+-- CUSTOM HUNGER SYSTEM WITH BAR ================================ THIS IS WIP DON"T ENABLE THIS - IT WILL CRASH/GIVE ERRORS
 ------------------------------------------------------------
-config.customHungerSystem = true
+config.customHungerSystem = false
 
 
 
@@ -100,7 +100,7 @@ config.customHungerSystem = true
 -- delay between ticks
 config.tickMs = 1000
 -- true - SPAM debug messeges everywhere
-config.debug = true
+config.debug = false
 
 
 return config
