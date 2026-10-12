@@ -47,7 +47,6 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
         end
     end)
 
-
     local dialogueOptions
     pcall(function()
         dialogueOptions = FindAllOf("VampireUrgeSpecialDialogueChoice")
@@ -63,10 +62,10 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
     for _, eatingOption in ipairs(dialogueOptions) do
         pcall(function()
             --if more then 1, then change dialogue replacement (random etc.)
-            if choicesCount > 1 and eatingOption.ReplacementMode ~= replacementMode then
+            if choicesCount > 2 then
                 eatingOption.ReplacementMode = replacementMode
             else 
-                helpers.PRINT_MSG("1 option is present, no rand replacement changing")
+                helpers.PRINT_MSG("1 option is present, replacement mode = vanilla")
                 eatingOption.ReplacementMode = 0
             end
 
@@ -93,14 +92,40 @@ function dialogue.DIALOGUE_STARTED()
     if not helpers.isVampire then  helpers.PRINT_MSG("Dialogue player is human" ) return end --player is human
     
     --count how many dialogue options you have
-    choicesCount = choicesCount + 1
+    --choicesCount = choicesCount + 1
+    if choicesCount == 0 then
+        local choiceWidgets
+        local choiceMap
+        pcall(function()
+            choiceWidgets = FindAllOf("CinematicDialogueChoiceWidget")
+        end)
+
+    for _, choiceWidget in ipairs(choiceWidgets) do
+    if helpers.IS_VALID(choiceWidget) then
+        helpers.PRINT_MSG(string.format("found: %s", choiceWidget:GetFullName()))
+        displayedChoiceObj = choiceWidget.DisplayedChoice --DisplayedChoice --Choices
+        if helpers.IS_VALID(displayedChoiceObj) then
+            helpers.PRINT_MSG(string.format("found: %s", displayedChoiceObj:GetFullName()))
+            choiceMap = displayedChoiceObj.Choices
+            if choiceMap and #choiceMap ~= 0 then
+                helpers.PRINT_MSG(string.format("found in map: %d", #choiceMap))
+                choicesCount = #choiceMap
+            end
+        end
+    end 
+
+    end
+
+    end
 
     helpers.PRINT_MSG(string.format("choices count: %d", choicesCount))
+
+
+
 
     helpers.PRINT_MSG("On dialogue choice")
     dialogue.inDialogue = true
 
-   
 
     if config.isChangingDialogue then
         dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
@@ -124,10 +149,13 @@ function dialogue.DIALOGUE_ENDED()
 end
 
 function dialogue.ON_RESET()
+    helpers.PRINT_MSG("On dialogue reset")
+
     choicesCount = 0
 end
 
-
+--CinematicDialogueChoiceWidget /Script/DogwoodUI.Default__CinematicDialogueChoiceWidget
+--want to find this, then can get choices CinematicDialogueWidget
 return dialogue
 ------------------------------------------------------------
 -- MY TRASH NOTES

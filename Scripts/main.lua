@@ -1,5 +1,5 @@
 --[[
-    Dangerous Vampiric Urges v0.6.1
+    Dangerous Vampiric Urges v0.6.2
 	Mod changes how 'give in to hunger' dialogue option is presented on screen. For example you can set it, to replace random dialogue option (like in prologue).
 	Currently displaying is based on hunger lvl. If some other hunger system(mod) is supposed to work with this, then it needs to change game's hunger lvl. Any other external systems won't change dialogue. 
 	Doesn't (and shouldn't) affect any other game functionality.
@@ -15,7 +15,7 @@ customHungerSystem = require("customHungerWithBar")
 
 
 player = nil
-
+isInCombat = false
 
 ------------------------------------------------------------
 -- RUN THIS ONCE PER TICK
@@ -29,16 +29,25 @@ local function RUN_ONCE_PER_TICK()
         if helpers.IS_VALID(player) then
             helpers.PRINT_MSG("Found player in tick")
             helpers.CHECK_VAMPIRE(player)
-
+            --safety sometime this is needed
+            
             if config.customHungerSystem then
-                
+                customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+                customHungerSystem.SPAWN_HUNGER_BAR()
+                customHungerSystem.ON_HUD()
                 customHungerSystem.INIT_HUNGER_BAR(player)
             end
-
 
         else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
     end 
     
+    
+
+
+    if config.customHungerSystem and helpers.IS_VALID(player) then
+        customHungerSystem.INIT_HUNGER_BAR(player)
+    end
+
 
 end
 
@@ -192,10 +201,14 @@ local function SETUP()
             RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:CallOnCinematicModeEnded", function() helpers.PRINT_MSG("DIALOGUE ENDED") dialogue.DIALOGUE_ENDED() end)
         end)
 
-         pcall(function()
+        pcall(function()
             RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceLineWidget:SetupChoice", function() helpers.PRINT_MSG("DIALOGUE CHOICE SAFETY") dialogue.DIALOGUE_STARTED() end)
         end)
 
+        pcall(function()
+            RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceWidget:ShowChoices", function() helpers.PRINT_MSG("DIALOGUE CHOICE COUNTER RESET") dialogue.ON_RESET() end)
+        end)
+--Function /Script/DogwoodUI.CinematicDialogueChoiceWidget:ShowChoices here reset counter
     end
 
     -- only when custom hp % threshold for hunger OR custom hunger
@@ -237,7 +250,12 @@ local function SETUP()
 
                 --init hunger bar
                 if config.customHungerSystem then
+                    
+                    --init if hunger was set
                     customHungerSystem.INIT_HUNGER_BAR(player)
+
+
+
 
                 end
 
@@ -260,15 +278,88 @@ local function SETUP()
         end)
 
 
+        if config.customHungerSystem then
+        --all things replenishing blood
+        pcall(function() --this fires when drinking outside combat(with holding button)
+            RegisterHook("/Script/Dawnwalker.DrinkBloodFocusAbility:TickDrinking", function() return end, function() helpers.PRINT_MSG("BLOOD TICK") 
+                
+                customHunger.TICK_BLOOD()
+
+            end)
+        end)
+
+
+        pcall(function() --drinking overall returns victim
+            RegisterHook("/Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStarted", function() return end, function() helpers.PRINT_MSG("BLOOD DRINK STARTED") 
+                
+                --if in combat then drinking = voracius bite
+                if isInCombat then
+                    helpers.PRINT_MSG("COMBAT DRINKING")
+                    --just start some tick loop until it ends 
+                else
+                    helpers.PRINT_MSG("OUTSIDE COMBAT DRINKING") 
+                end
+
+
+            end)
+        end)
+
+        pcall(function() --drinking overall returns victim
+            RegisterHook("/Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStopped", function() return end, function() helpers.PRINT_MSG("BLOOD DRINK ENDED") 
+                
+                --if loop drink active then stop
+
+            end)
+        end)
+
+        pcall(function() --combat start
+            RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatStarted", function() return end, function() helpers.PRINT_MSG("COMBAT STARTED") 
+                isInCombat = true
+
+            end)
+        end)
+
+        pcall(function() --combat end
+            RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatEnded", function() return end, function() helpers.PRINT_MSG("COMBAT ENDED") 
+                isInCombat = false
+
+            end)
+        end)
+
+        pcall(function() --drinking in dialogue ended (only works for [give in to the hunger])
+            RegisterHook("/Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped", function() return end, function() helpers.PRINT_MSG("DIALOGUE DRINKING ENDED") 
+                
+
+            end)
+        end)
+
+        pcall(function() --drinking in dialogue started - this doesnt work
+            RegisterHook("/Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStarted", function() return end, function() helpers.PRINT_MSG("DIALOGUE DRINKING STARTED") 
+                
+
+            end)
+        end)
 
 
 
+        end
 
+
+--Function /Script/Dawnwalker.DrinkBloodSubsystem:OnDrinkingInProgress
+--Function /Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStopped
+
+--Function /Script/DogwoodStats.BloodBarComponent:RestoreAmount
+--Function /Script/DogwoodStats.BloodBarComponent:RestorePercentage
+--Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedHealthOrBloodCost
+
+--Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedHealthOrBloodCost
+--Function /Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped
+--Function /Script/Dawnwalker.QuestConditionHostileActionType_Controller:OnBloodDrinking
     end
 
-
 end
-
+--Function /Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStarted this no idea?
+--Function /Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped this works for dialogue
 ------------------------------------------------------------
 -- TICK
 ------------------------------------------------------------
@@ -303,9 +394,12 @@ pcall(function()
         hungerHP.currentHungerLvl = 0
         hungerHP.GA_hunger = nil
         hungerHP.player = nil
+        isInCombat = false
 
         if config.customHungerSystem then
             customHungerSystem.REMOVE_FROM_VIEWPORT()
+            customHunger.currentHungerAmount = 0
+            customHunger.maxHungerAmount = 0
         end
 
         --main menu is back
@@ -373,7 +467,9 @@ if config.customHungerSystem then
             end
             
         end)
-    end)
+        end)
+
+
 end
 
 
@@ -412,14 +508,3 @@ LoopAsync(1000, function()
     end)
     return false
 end)
-
-
-------------------------------------------------------------
--- MY TRASH NOTES
-------------------------------------------------------------
---Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
---Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped
---Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStarted
-
-
-

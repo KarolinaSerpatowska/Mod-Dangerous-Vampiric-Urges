@@ -13,6 +13,8 @@ local modNameNoExtension = "DangerousVampiricUrges"
 local hungerBarAsset = nil
 
 customHunger.hungerBarWidget = nil
+customHunger.currentHungerAmount = 0
+customHunger.maxHungerAmount = 0
 
 ------------------------------------------------------------
 -- asset registry for WBP load
@@ -84,6 +86,10 @@ ExecuteInGameThread(function()
 
 end
 
+------------------------------------------------------------
+-- Add widget to blood bar in hud
+------------------------------------------------------------
+
 function customHunger.ON_HUD() 
     helpers.PRINT_MSG("ON_HUD CALLED")
     
@@ -100,20 +106,12 @@ function customHunger.ON_HUD()
 
 
     
-    helpers.PRINT_MSG(string.format("znaleziono: %s", hud:GetFullName()))
-
-  
-  --VerticalBox /Engine/Transient.GameEngine_2147482572:BP_GameInstance_C_2147482521.WBP_UIFrontend_C_2147479937.WidgetTree_2147479936.WBP_GameHUD_C_2147446531.WidgetTree_2147446530.VampireStats.WidgetTree_2147446455.VerticalBox_20
-    -- local path = "/Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats.WBP_HUD_VampireStats_C:WidgetTree.Overlay_0"
-    --/Engine/Transient.GameEngine_2147482572:BP_GameInstance_C_2147482521.WBP_UIFrontend_C_2147479937.WidgetTree_2147479936.WBP_GameHUD_C_2147446539.WidgetTree_2147446538.VampireStats.WidgetTree_2147446463.WBP_HUD_VampireStats_BloodSegment_C_2147445961.WidgetTree_2147445960.HeightConstrainer
-    --WBP_HUD_VampireStats_C /Game/_Dawnwalker/UI/_Unified/HUD/WBP_GameHUD.WBP_GameHUD_C:WidgetTree.VampireStats
-    --Overlay /Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats.WBP_HUD_VampireStats_C:WidgetTree.Overlay_0
-    --Overlay /Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats_BloodSegment.WBP_HUD_VampireStats_BloodSegment_C:WidgetTree.Overlay_42
+    helpers.PRINT_MSG(string.format("found: %s", hud:GetFullName()))
 
   
     local root = hud.VampireStats.WidgetTree.RootWidget
     
-    helpers.PRINT_MSG(string.format("znaleziono: %s", root:GetFullName()))
+    helpers.PRINT_MSG(string.format("found: %s", root:GetFullName()))
     helpers.PRINT_MSG("WIDGET DOESNT HAVE PARENT")
 
     local a,b = pcall(function() root:AddChild(customHunger.hungerBarWidget) end)
@@ -122,6 +120,12 @@ function customHunger.ON_HUD()
     helpers.PRINT_MSG(b)
     helpers.PRINT_MSG("WIDGET ADDED")
 
+    --set to fill
+    --local slot = customHunger.hungerBarWidget.Slot
+        --slot:SetHorizontalAlignment(0)
+        --slot:SetVerticalAlignment(0)
+
+
     --debug
     if helpers.IS_VALID(customHunger.hungerBarWidget:GetParent()) then
         helpers.PRINT_MSG("WIDGET HAS PARENT - no adding")
@@ -129,28 +133,39 @@ function customHunger.ON_HUD()
 
 end
 
+------------------------------------------------------------
+-- Init hunger bar with values
+------------------------------------------------------------
+
 function customHunger.INIT_HUNGER_BAR(player)
     if not helpers.IS_VALID(player) then helpers.PRINT_MSG("INIT BAR: no player") return end
     if not helpers.IS_VALID(player.BloodBar) then helpers.PRINT_MSG("INIT BAR: no blood bar") return end
     if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("INIT BAR: widget not valid") return end
 
-    
-    local maxHungerAmount = player.BloodBar:GetBloodBarLength()
 
-    if maxHungerAmount == 0 then
+    --don't init if already was inited
+    if customHunger.maxHungerAmount ~= 0 then return end
+
+    customHunger.maxHungerAmount = player.BloodBar:GetBloodBarLength()
+
+     if customHunger.maxHungerAmount == 0 then
         helpers.PRINT_MSG("INIT BAR: blood bar is zero")
         return
     end
 
-    local currentHungerAmount = maxHungerAmount / 2
+    customHunger.currentHungerAmount = customHunger.maxHungerAmount / 2
 
     pcall(function() 
-        customHunger.hungerBarWidget:SetCurrentBarValue(currentHungerAmount, maxHungerAmount)
+        customHunger.hungerBarWidget:SetCurrentBarValue(customHunger.currentHungerAmount, customHunger.maxHungerAmount)
     end)
     
     
 
 end
+
+------------------------------------------------------------
+-- Remove widget
+------------------------------------------------------------
 
 function customHunger.REMOVE_FROM_VIEWPORT()
     if not helpers.IS_VALID(customHunger.hungerBarWidget) then return end
@@ -190,10 +205,38 @@ local function CHANGE_POSITION()
 
 end
 
+------------------------------------------------------------
+-- For ticking drinking, adds blood
+------------------------------------------------------------
+
+function customHunger.TICK_BLOOD()
+    if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("NOT VALID WIDGET") return end
+
+
+    customHunger.currentHungerAmount = customHunger.currentHungerAmount + 1
+
+
+    pcall(function() 
+        customHunger.hungerBarWidget:SetCurrentBarValue(customHunger.currentHungerAmount, customHunger.maxHungerAmount)
+    end)
+
+end
+
 
 
 return customHunger
 
+------------------------------------------------------------
+-- MY TRASH NOTES
+------------------------------------------------------------
+--Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedHealthOrBloodCost
+--Function /Script/DogwoodCombat.CombatFocusVampireAbility:GetBloodDrinkValueToHeal
+--Function /Script/DogwoodStats.BloodBarComponent:UnlockBlood
+--Function /Script/Dawnwalker.DrinkBloodSubsystem:ReplenishBlood
+
+--Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
+--Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped
+--Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStarted
 
 --VampireStats
 --Function /Script/DogwoodUI.HUDManagerSubsystem:IsHUDVisible
