@@ -41,8 +41,10 @@ local function RUN_ONCE_PER_TICK()
         else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
     end 
     
-    
-
+    --this should find widget when mod restarts during gameplay
+    if config.customHungerSystem then
+        customHunger.TRY_FIND_WIDGET()
+    end
 
     if config.customHungerSystem and helpers.IS_VALID(player) then
         customHungerSystem.INIT_HUNGER_BAR(player)
@@ -161,9 +163,9 @@ local function SETUP()
             helpers.CHECK_VAMPIRE(player)
             
             
-            --init hunger bar
+            --init hunger bar with custom value, when night starts
             if config.customHungerSystem then
-                customHungerSystem.INIT_HUNGER_BAR(player)
+                customHunger.HUNGER_BAR_ON_NIGHT_START(player)
 
             end
             
@@ -202,13 +204,13 @@ local function SETUP()
         end)
 
         pcall(function()
-            RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceLineWidget:SetupChoice", function() helpers.PRINT_MSG("DIALOGUE CHOICE SAFETY") dialogue.DIALOGUE_STARTED() end)
+            RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceLineWidget:SetupChoice", function() helpers.PRINT_MSG("DIALOGUE CHOICES START") dialogue.DIALOGUE_STARTED() end)
         end)
 
         pcall(function()
             RegisterHook("/Script/DogwoodUI.CinematicDialogueChoiceWidget:ShowChoices", function() helpers.PRINT_MSG("DIALOGUE CHOICE COUNTER RESET") dialogue.ON_RESET() end)
         end)
---Function /Script/DogwoodUI.CinematicDialogueChoiceWidget:ShowChoices here reset counter
+
     end
 
     -- only when custom hp % threshold for hunger OR custom hunger
@@ -224,22 +226,15 @@ local function SETUP()
                 
                 --hunger custom HP
                 if config.customHungerHPThreshold then
-                    hung:set(hungerHP.currentHungerLvl) --replace games hunger with current, but kind doesn't do anything?
+                    hung:set(hungerHP.currentHungerLvl) --replace games hunger with current, but kind doesn't do anything? = doing it for safety
                 end
             
             end, 
-            function()
-                helpers.PRINT_MSG("DawnwalkerPlayerCharacter:OnVampireHungerLevelChanged post")
-
-
- 
-
-
-            end)
+            function() helpers.PRINT_MSG("DawnwalkerPlayerCharacter:OnVampireHungerLevelChanged post") end)
         end)
 
         
-       
+       --basicaly fires when vampire hp changed
         pcall(function()
             RegisterHook("/Script/DogwoodVampireHunger.VampireHungerSubsystem:OnBloodValueChanged", function() return end, function() helpers.PRINT_MSG("ON BLOOD POST") 
                 
@@ -252,7 +247,7 @@ local function SETUP()
                 if config.customHungerSystem then
                     
                     --init if hunger was set
-                    customHungerSystem.INIT_HUNGER_BAR(player)
+                    --customHungerSystem.INIT_HUNGER_BAR(player)
 
 
 
@@ -279,71 +274,95 @@ local function SETUP()
 
 
         if config.customHungerSystem then
-        --all things replenishing blood
-        pcall(function() --this fires when drinking outside combat(with holding button)
-            RegisterHook("/Script/Dawnwalker.DrinkBloodFocusAbility:TickDrinking", function() return end, function() helpers.PRINT_MSG("BLOOD TICK") 
+        --all things with blood drinking
+            pcall(function() --this fires when drinking outside combat(with holding button)
+                RegisterHook("/Script/Dawnwalker.DrinkBloodFocusAbility:TickDrinking", function() return end, function() helpers.PRINT_MSG("BLOOD TICK") 
                 
-                customHunger.TICK_BLOOD()
+                    customHunger.TICK_BLOOD()
 
+                end)
             end)
-        end)
+--Function /Script/Dawnwalker.DrinkBloodFocusAbility:StartDrinking
+--Function /Script/Dawnwalker.DrinkBloodFocusAbility:FinishDrinking
 
-
-        pcall(function() --drinking overall returns victim
-            RegisterHook("/Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStarted", function() return end, function() helpers.PRINT_MSG("BLOOD DRINK STARTED") 
+            --if not using then remove, but usseless probably
+            pcall(function() --drinking returns victim (doesn't fire when holding button drinking?)
+                RegisterHook("/Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStarted", function() return end, function() helpers.PRINT_MSG("BLOOD DRINK STARTED") 
                 
-                --if in combat then drinking = voracius bite
-                if isInCombat then
-                    helpers.PRINT_MSG("COMBAT DRINKING")
-                    --just start some tick loop until it ends 
-                else
-                    helpers.PRINT_MSG("OUTSIDE COMBAT DRINKING") 
-                end
+                    --if in combat then drinking = voracius bite
+                    if isInCombat then
+                        helpers.PRINT_MSG("COMBAT DRINKING")
+                        --just start some tick loop until it ends
+                        --customHunger.START_STOP_LOOP_BLOOD(true)
+                    else -- this never happens?
+                        helpers.PRINT_MSG("OUTSIDE COMBAT DRINKING")
+                        --customHunger.START_STOP_LOOP_BLOOD(true) 
+                    end
 
 
+                end)
             end)
-        end)
 
-        pcall(function() --drinking overall returns victim
-            RegisterHook("/Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStopped", function() return end, function() helpers.PRINT_MSG("BLOOD DRINK ENDED") 
+            pcall(function() --drinking returns victim
+                RegisterHook("/Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped", function() 
+                    --if loop drink active then stop
+                    customHunger.START_STOP_LOOP_BLOOD(false)
+                    return 
+                end,
+                function() helpers.PRINT_MSG("BLOOD DRINK ENDED") 
                 
-                --if loop drink active then stop
+                    
 
+
+                end)
             end)
-        end)
 
-        pcall(function() --combat start
-            RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatStarted", function() return end, function() helpers.PRINT_MSG("COMBAT STARTED") 
-                isInCombat = true
+            --this is not needed
+            pcall(function() --combat start
+                RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatStarted", function() return end, function() helpers.PRINT_MSG("COMBAT STARTED") 
+                    isInCombat = true
 
+                end)
             end)
-        end)
+            --this is not needed
+            pcall(function() --combat end
+                RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatEnded", function() return end, function() helpers.PRINT_MSG("COMBAT ENDED") 
+                    isInCombat = false
 
-        pcall(function() --combat end
-            RegisterHook("/Script/DogwoodCombat.PlayerCombatComponent:OnCombatEnded", function() return end, function() helpers.PRINT_MSG("COMBAT ENDED") 
-                isInCombat = false
-
+                end)
             end)
-        end)
 
-        pcall(function() --drinking in dialogue ended (only works for [give in to the hunger])
-            RegisterHook("/Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped", function() return end, function() helpers.PRINT_MSG("DIALOGUE DRINKING ENDED") 
-                
-
+            pcall(function() --drinking in dialogue ended (only works for [give in to the hunger], and outside combat too?)
+                RegisterHook("/Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped", function() return end, function() helpers.PRINT_MSG("DIALOGUE DRINKING ENDED") 
+                        --add some blood to bar(no tick), if no drinking with holding 
+                        customHunger.APPLY_INSTANT_BLOOD()
+                end)
             end)
-        end)
 
-        pcall(function() --drinking in dialogue started - this doesnt work
-            RegisterHook("/Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStarted", function() return end, function() helpers.PRINT_MSG("DIALOGUE DRINKING STARTED") 
-                
+            --GA_ShadowstepBite_C = voracius bite - this is hidden in BP...
+            pcall(function()
+                RegisterHook("/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:ExecuteUbergraph_GA_ShadowstepBite", function(self, EntryPoint)
+                    local ID = EntryPoint:get()
+                    if ID == 1584 then --/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:OnBloodDrinkingStarted
+                        helpers.PRINT_MSG("VORACIOUS BITE: BLOOD START")
+                        customHunger.START_STOP_LOOP_BLOOD(true)
+                    end
 
+                    if ID == 1248 then --/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:OnBloodDrinkingEnded
+                        helpers.PRINT_MSG("VORACIOUS BITE: BLOOD END")
+                         customHunger.START_STOP_LOOP_BLOOD(false)
+                    end
+                    
+                end)
             end)
-        end)
-
 
 
         end
 
+--still need to find for when dialogue is drinking (ambrus?)
+-- another thing items
+
+--Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
 
 --Function /Script/Dawnwalker.DrinkBloodSubsystem:OnDrinkingInProgress
 --Function /Script/Dawnwalker.DrinkBloodSubsystem:NotifyBloodDrinkingStopped
@@ -397,9 +416,11 @@ pcall(function()
         isInCombat = false
 
         if config.customHungerSystem then
-            customHungerSystem.REMOVE_FROM_VIEWPORT()
+            --customHungerSystem.REMOVE_FROM_VIEWPORT() NOT NEEDED?
+            customHunger.START_STOP_LOOP_BLOOD(false) 
             customHunger.currentHungerAmount = 0
             customHunger.maxHungerAmount = 0
+            
         end
 
         --main menu is back

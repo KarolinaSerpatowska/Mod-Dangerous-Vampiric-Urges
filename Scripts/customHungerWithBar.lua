@@ -12,9 +12,13 @@ local modNameNoExtension = "DangerousVampiricUrges"
 
 local hungerBarAsset = nil
 
+local looping = false
+local drinkBlood = false
+
 customHunger.hungerBarWidget = nil
 customHunger.currentHungerAmount = 0
 customHunger.maxHungerAmount = 0
+
 
 ------------------------------------------------------------
 -- asset registry for WBP load
@@ -176,10 +180,17 @@ function customHunger.REMOVE_FROM_VIEWPORT()
     end
 
 end
+------------------------------------------------------------
+-- If widget is missing then try to recover it from the hud (happens when mod is reloaded during gameplay)
+------------------------------------------------------------
 
--- Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:ChangeScale
---Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:SetCurrentBarValue
---HUDManagerSubsystem /Game/Map_Blockout_Valley/Blockout_Valley.Blockout_Valley:HUDManagerSubsystem_2147401949
+function customHunger.TRY_FIND_WIDGET()
+    if helpers.IS_VALID(customHunger.hungerBarWidget) then return end
+
+    customHunger.hungerBarWidget = FindFirstOf("WBP_BloodWidget_C")
+    if helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("FOUND WIDGET") return end
+
+end
 
 local function CHANGE_POSITION()
     if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("NOT VALID WIDGET WTF") return end
@@ -212,6 +223,7 @@ end
 function customHunger.TICK_BLOOD()
     if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("NOT VALID WIDGET") return end
 
+    drinkBlood = true
 
     customHunger.currentHungerAmount = customHunger.currentHungerAmount + 1
 
@@ -222,13 +234,64 @@ function customHunger.TICK_BLOOD()
 
 end
 
+function customHunger.START_STOP_LOOP_BLOOD(isLoop)
+    looping = isLoop
+    if looping then
+        ExecuteInGameThread(customHunger.LOOP_BLOOD)
+    end
 
+end
+
+function customHunger.LOOP_BLOOD()
+    --helpers.PRINT_MSG("LOOPING BLOOD")
+    
+    customHunger.TICK_BLOOD()
+
+    if looping then
+        ExecuteInGameThread(customHunger.LOOP_BLOOD)
+    end
+end
+
+function customHunger.APPLY_INSTANT_BLOOD()
+    if drinkBlood then helpers.PRINT_MSG("NOT APPLYING INSTA BLOOD - IT WAS TICK DRINKING") return end
+
+    customHunger.currentHungerAmount = customHunger.currentHungerAmount + 50
+
+    pcall(function() 
+        customHunger.hungerBarWidget:SetCurrentBarValue(customHunger.currentHungerAmount, customHunger.maxHungerAmount)
+    end)
+
+end
+
+function customHunger.HUNGER_BAR_ON_NIGHT_START(player)
+    if not helpers.IS_VALID(player) then helpers.PRINT_MSG("INIT BAR: no player") return end
+    if not helpers.IS_VALID(player.BloodBar) then helpers.PRINT_MSG("INIT BAR: no blood bar") return end
+    if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("INIT BAR: widget not valid") return end
+
+    customHunger.maxHungerAmount = player.BloodBar:GetBloodBarLength()
+
+     if customHunger.maxHungerAmount == 0 then
+        helpers.PRINT_MSG("INIT BAR: blood bar is zero")
+        return
+    end
+
+    --set this to some percent
+    customHunger.currentHungerAmount = customHunger.maxHungerAmount / 2
+
+    pcall(function() 
+        customHunger.hungerBarWidget:SetCurrentBarValue(customHunger.currentHungerAmount, customHunger.maxHungerAmount)
+    end)
+end
 
 return customHunger
 
 ------------------------------------------------------------
 -- MY TRASH NOTES
 ------------------------------------------------------------
+--MY WIDGET
+--Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:ChangeScale
+--Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:SetCurrentBarValue
+
 --Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedHealthOrBloodCost
 --Function /Script/DogwoodCombat.CombatFocusVampireAbility:GetBloodDrinkValueToHeal
 --Function /Script/DogwoodStats.BloodBarComponent:UnlockBlood
@@ -237,9 +300,13 @@ return customHunger
 --Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStarted
-
+--Function /Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats_BloodSegment.WBP_HUD_VampireStats_BloodSegment_C:CalculateAndShowCostPercentage
 --VampireStats
+
 --Function /Script/DogwoodUI.HUDManagerSubsystem:IsHUDVisible
 --Function /Script/DogwoodUI.HUDManagerSubsystem:SetHUDVisible
---Function /Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats_BloodSegment.WBP_HUD_VampireStats_BloodSegment_C:CalculateAndShowCostPercentage
---WidgetBlueprintGeneratedClass /Game/_Dawnwalker/UI/_Unified/HUD/WBP_GameHUD.WBP_GameHUD_C
+
+
+
+-- GE for healing
+--GE_ShadowBiteHeal_C /Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GE_ShadowBiteHeal.Default__GE_ShadowBiteHeal_C
