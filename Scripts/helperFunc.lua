@@ -108,6 +108,10 @@ function helpers.CHECK_VAMPIRE(player)
 
     pcall(function() helpers.isVampire = player:IsVampire() end)
     
+    if not helpers.isVampire then
+        helpers.PRINT_MSG("Player NOT vampire")
+    end
+
     if helpers.isVampire then
         helpers.PRINT_MSG("Player is vampire")
     end

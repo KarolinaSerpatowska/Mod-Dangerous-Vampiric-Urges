@@ -16,7 +16,7 @@ local choicesCount = 0
 function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
     if not helpers.isVampire then
         helpers.PRINT_MSG("Player is human = leave dialogue alone") 
-        return false
+        return
     end
 
     helpers.PRINT_MSG("Changing dialogue function start")
@@ -54,7 +54,7 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
     
     if dialogueOptions == nil then
          helpers.PRINT_MSG("Couldn't find special vampire option in dialogue") 
-         return false 
+         return 
     end
     
     helpers.PRINT_MSG("EATING OPTION IS PRESENT")
@@ -75,12 +75,13 @@ function dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
             if config.disableForcefulEating then --if disable forcefull eating
                 eatingOption.DisplayMode = 1
             end
+
         end)
         
     end
 
     helpers.PRINT_MSG("Succesfuly changed vampire eating dialogue option")
-    return true
+    return
 end
 
 ------------------------------------------------------------
@@ -88,9 +89,10 @@ end
 ------------------------------------------------------------
 
 function dialogue.DIALOGUE_STARTED()
-    --return happens sometimes here?
+    if not config.isChangingDialogue then return end
     if not helpers.isVampire then  helpers.PRINT_MSG("Dialogue player is human" ) return end --player is human
-    
+
+
     --count how many dialogue options you have
     --choicesCount = choicesCount + 1
     if choicesCount == 0 then
@@ -125,12 +127,8 @@ function dialogue.DIALOGUE_STARTED()
 
     helpers.PRINT_MSG("On dialogue choice")
     dialogue.inDialogue = true
-
-
-    if config.isChangingDialogue then
-        dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
-    end
-
+    
+    dialogue.CHANGE_VAMPIRE_DIALOGUE_OPTION()
 
 end
 
@@ -139,6 +137,7 @@ end
 ------------------------------------------------------------
 
 function dialogue.DIALOGUE_ENDED()
+    if not config.isChangingDialogue then return end
     if not helpers.isVampire then return end --player is human
 
     helpers.PRINT_MSG("On dialogue end")
@@ -149,13 +148,13 @@ function dialogue.DIALOGUE_ENDED()
 end
 
 function dialogue.ON_RESET()
+    if not config.isChangingDialogue then return end
     helpers.PRINT_MSG("On dialogue reset")
 
     choicesCount = 0
 end
 
---CinematicDialogueChoiceWidget /Script/DogwoodUI.Default__CinematicDialogueChoiceWidget
---want to find this, then can get choices CinematicDialogueWidget
+
 return dialogue
 ------------------------------------------------------------
 -- MY TRASH NOTES
