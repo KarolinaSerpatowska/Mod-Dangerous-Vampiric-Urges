@@ -25,7 +25,8 @@ function helpers.IS_PLAYER_PAWN(Object)
     if Object == nil then return nil end
     local Success, Result = pcall(function() return Object:GetFullName() end)
     if Success and Result ~= nil then
-         return string.find(Object:GetFullName(), "BP_PlayerCharacter_C_", 1, true) ~= nil 
+        helpers.PRINT_MSG(Object:GetFullName()) 
+        return string.find(Object:GetFullName(), "BP_PlayerCharacter_C_", 1, true) ~= nil 
     end
 end
 
@@ -36,49 +37,16 @@ end
 function helpers.FIND_PLAYER()
 
     local player = nil
-    pcall(function()
-        local controller = UEHelpers.GetPlayerController
-        if helpers.IS_VALID(controller) then
-           player = controller.GetPawn
-        end
-    end)
-    --found player
-    if helpers.IS_VALID(player) then
+
+    local controller = UEHelpers.GetPlayerController()
+
+    if helpers.IS_VALID(controller) and helpers.IS_VALID(controller.Pawn) and helpers.IS_PLAYER_PAWN(controller.Pawn) then
+        player = controller.Pawn
+        helpers.PRINT_MSG(player:GetFullName())
+        helpers.CHECK_VAMPIRE(player)
         return player
     end
     
-
-    --2 attempt
-    pcall(function()
-        player = FindFirstOf("BP_PlayerCharacter_C")
-    end)
-
-    --found player
-    if helpers.IS_VALID(player) then   
-        return player
-    end
-
-
-    --3 attempt
-    local Candidates = nil
-    pcall(function()
-        Candidates = FindAllOf("BP_PlayerCharacter_C")
-    end)
-    if helpers.IS_VALID(Candidates) then
-        for _, Candidate in ipairs(Candidates) do
-            if helpers.IS_PLAYER_PAWN(Candidate) then
-                local Controller = nil
-                pcall(function()
-                    Controller = Candidate:GetController()
-                end)
-                if helpers.IS_VALID(Controller) then
-                    helpers.PRINT_MSG("Player found (FindAllOf recovery)")
-                    return Candidate
-                end
-            end
-        end
-    end
-
     --player not found
     helpers.PRINT_MSG("PLAYER NOT FOUND!!!")
     return nil
@@ -94,6 +62,7 @@ function helpers.IS_MAIN_MENU_PRESENT()
         -- no main menu
         return false
     end
+
     return true
 end
 
@@ -109,11 +78,11 @@ function helpers.CHECK_VAMPIRE(player)
     pcall(function() helpers.isVampire = player:IsVampire() end)
     
     if not helpers.isVampire then
-        helpers.PRINT_MSG("Player NOT vampire")
+        helpers.PRINT_MSG("Player: Human")
     end
 
     if helpers.isVampire then
-        helpers.PRINT_MSG("Player is vampire")
+        helpers.PRINT_MSG("Player: Vampire")
     end
 
 end

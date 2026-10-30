@@ -148,10 +148,10 @@ function dialogue.DIALOGUE_ENDED()
 end
 
 function dialogue.ON_RESET()
+    choicesCount = 0
     if not config.isChangingDialogue then return end
     helpers.PRINT_MSG("On dialogue reset")
-
-    choicesCount = 0
+    
 end
 
 

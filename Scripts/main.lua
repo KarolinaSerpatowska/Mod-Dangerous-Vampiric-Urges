@@ -23,39 +23,56 @@ hungerLVLChangeHooks = false
 drinkingBloodHooks = false
 
 ------------------------------------------------------------
--- RUN THIS ONCE PER TICK
+-- RUN THIS ONCE PER TICK REMOVE?
 ------------------------------------------------------------
 
 local function RUN_ONCE_PER_TICK()
-    --find player if not valid
-    if not helpers.IS_VALID(player) then
-        player = helpers.FIND_PLAYER()
-        hungerHP.player = player
-        if helpers.IS_VALID(player) then
-            helpers.PRINT_MSG("Found player in tick")
-            helpers.CHECK_VAMPIRE(player)
-            --safety sometime this is needed
-            
-            if config.customHungerSystem then
-                customHungerSystem.LOAD_HUNGER_BAR_ASSET()
-                customHungerSystem.SPAWN_HUNGER_BAR()
-                customHungerSystem.ON_HUD()
-                customHungerSystem.INIT_HUNGER_BAR(player)
+   
+
+end
+------------------------------------------------------------
+-- this is initial setup that requires game to be fully loaded
+------------------------------------------------------------
+local function WAIT_FOR_INIT_SETUP()
+    local failsafe = 0
+    local initCustomHunger = false
+    local initPlayer = helpers.IS_VALID(player)
+    LoopAsync(1000, function()
+        if initPlayer and initCustomHunger then return true end -- stop this loop
+        if failsafe > 1000 then
+            print("[Dangerous Vampiric Urges] Init took too long and failed")
+            return true
+        end --stop loop if goes too long
+
+        ExecuteInGameThread(function()
+
+            if initPlayer and initCustomHunger then helpers.PRINT_MSG("INIT LOOP DONE") return end -- if done then stop
+            failsafe = failsafe + 1
+
+
+            --player is missing
+            if not initPlayer then
+                player = helpers.FIND_PLAYER()
+                if helpers.IS_VALID(player) then
+                    hungerHP.player = player
+                    initPlayer = true
+                end
             end
 
-        else helpers.PRINT_MSG("PLAYER NOT FOUND...") return end
-    end 
+
+            -- init custom hunger system
+            if not initCustomHunger and helpers.IS_VALID(player) and config.customHungerSystem  then
+                initCustomHunger = customHunger.INIT_SETUP(player)
+            end
     
-    --this should find widget when mod restarts during gameplay
-    if config.customHungerSystem then
-        customHunger.TRY_FIND_WIDGET()
-    end
 
-    if config.customHungerSystem and helpers.IS_VALID(player) then
-        customHungerSystem.INIT_HUNGER_BAR(player)
-    end
+            if failsafe > 1000 then return end --stop loop if goes too long and failed
+    
+    
+    end)
 
-
+        return false
+    end)
 end
 
 ------------------------------------------------------------
@@ -133,11 +150,11 @@ local function DEBUG_BUTTONS()
 
             local SetOK, SetErr = pcall(function()
                
+                --find some normal size for widget
+                    customHunger.hungerBarWidget:ChangeScale(32,120)
 
-                helpers.PRINT_MSG("BUTTON?")
-                
-                    player.BloodBar:SetBloodPercent(TargetBloodPercent)
-                    hungerHP.ON_BLOOD_BAR_SETTING()
+                   -- player.BloodBar:SetBloodPercent(TargetBloodPercent)
+                   -- hungerHP.ON_BLOOD_BAR_SETTING()
 
             end)
 
@@ -158,14 +175,13 @@ local function DEBUG_BUTTONS()
 end
 
 ------------------------------------------------------------
--- SETUP
+-- SETUP HERE ARE HOOKS AND BUTTONS
 ------------------------------------------------------------
 local function SETUP()
 
     --debug
     DEBUG_BUTTONS()
-
-
+    
 --hunger bar add to UI (IF MOD CHANGED SETTINGS)
     if config.customHungerSystem and not hookForHUDCreation then
         hookForHUDCreation = true
@@ -175,6 +191,13 @@ local function SETUP()
 
             ExecuteInGameThread(function()
                 helpers.PRINT_MSG("Init hunger widget starting")
+                if customHunger.TRY_FIND_WIDGET() == true then  --found widget already
+                    if helpers.IS_VALID(player) then
+                        customHungerSystem.INIT_HUNGER_BAR(player)
+                    end
+                    return
+                end
+
                 --init widget stuff
                 customHungerSystem.LOAD_HUNGER_BAR_ASSET()
                 customHungerSystem.SPAWN_HUNGER_BAR()
@@ -337,6 +360,7 @@ end
 
         if config.customHungerSystem and not drinkingBloodHooks then
              helpers.PRINT_MSG("CUSTOM HUNGER SYSTEM ENABLED")
+
         --all things with blood drinking
             pcall(function() --this fires when drinking outside combat(with holding button)
                 RegisterHook("/Script/Dawnwalker.DrinkBloodFocusAbility:TickDrinking", function() return end, function() helpers.PRINT_MSG("BLOOD TICK") 
@@ -347,6 +371,8 @@ end
             end)
 --Function /Script/Dawnwalker.DrinkBloodFocusAbility:StartDrinking
 --Function /Script/Dawnwalker.DrinkBloodFocusAbility:FinishDrinking
+
+--GA_DrinkBlood?
 
             --if not using then remove, but usseless probably
             pcall(function() --drinking returns victim (doesn't fire when holding button drinking?)
@@ -432,7 +458,6 @@ end
 
         end
 
-        --DawnwalkerAbilitySystemComponent /Game/_Dawnwalker/Player/BP_PlayerCharacter.Default__BP_PlayerCharacter_C:AbilitySystemComponent
 --GA_FocusDrinkBlood
 --GE_BloodDrinking
 --GE_BloodDrinkOpenWorldRegen
@@ -466,7 +491,7 @@ end
 --Function /Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStarted this no idea?
 --Function /Script/Dawnwalker.QuestBlockSystemImpl:OnBloodDrinkingStopped this works for dialogue
 ------------------------------------------------------------
--- TICK
+-- TICK REMOVE?
 ------------------------------------------------------------
 
 function TICK()
@@ -495,10 +520,15 @@ local ok, unsubscribe = pcall(API.subscribe, "DangerousVampiricUrges", function(
 
     helpers.PRINT_MSG("CONFIG CHANGED")
 
+    --only setup when hooking is needed
+    if (changes.CustomHungerHPThreshold and changes.CustomHungerHPThreshold.old ~= values.CustomHungerHPThreshold)
+    or (changes.ChangingDialogue and changes.ChangingDialogue.old ~= values.ChangingDialogue) then
+         SETUP()
+    end
+
+
     --don't setup if changes are in main menu
     if not helpers.IS_MAIN_MENU_PRESENT() then
-        SETUP()
-
         -- custom hunger hp setting changed
         if (changes.CustomHungerHPThreshold and changes.CustomHungerHPThreshold.old ~= values.CustomHungerHPThreshold)
         or (changes.oneThreshold and changes.oneThreshold.old ~= values.oneThreshold)
@@ -513,8 +543,8 @@ local ok, unsubscribe = pcall(API.subscribe, "DangerousVampiricUrges", function(
 
             if helpers.IS_VALID(helpers.hungerSystem) then
             --reset hunger lvl
-            helpers.PRINT_MSG("RESET HUNGER LVL")
-            pcall(function() helpers.hungerSystem:OnBloodValueChanged() end)
+                helpers.PRINT_MSG("RESET HUNGER LVL")
+                pcall(function() helpers.hungerSystem:OnBloodValueChanged() end)
             end
         end
     end
@@ -543,15 +573,21 @@ pcall(function()
         isInCombat = false
 
         if config.customHungerSystem then
-            --customHungerSystem.REMOVE_FROM_VIEWPORT() NOT NEEDED?
             customHunger.START_STOP_LOOP_BLOOD(false) 
             customHunger.currentHungerAmount = 0
             customHunger.maxHungerAmount = 0
-            
+            customHunger.hungerGAListener = nil
         end
 
-        --main menu is back
+        -- no main menu = reload, game -> game
+        if not helpers.IS_MAIN_MENU_PRESENT() then
+            WAIT_FOR_INIT_SETUP()
+            return
+        end
+
+        --main menu is back = reload, game -> main menu
         if helpers.IS_MAIN_MENU_PRESENT() and tickHandle ~= nil then    
+            --tick to remove in future if not needed
             --stop ticking
             helpers.PRINT_MSG("CANCELING TICK")
             local success = CancelDelayedAction(tickHandle)
@@ -560,20 +596,22 @@ pcall(function()
             local isGameReady = false
             local failsafe = 0
 
-            LoopAsync(1000, function()                
+            LoopAsync(1000, function()
+                if isGameReady then return true end -- stop this loop             
                 ExecuteInGameThread(function()
                     if isGameReady then return end
                     failsafe = failsafe + 1
                     local controller = UEHelpers.GetPlayerController()
-                    
                     if helpers.IS_VALID(controller) and helpers.IS_VALID(controller.Pawn) and helpers.IS_PLAYER_PAWN(controller.Pawn) then
                         isGameReady = true
                         helpers.PRINT_MSG("Game ready")
                         -- one-time setup here
                         player = controller.Pawn
+                        helpers.PRINT_MSG("Game ready player:")
+                        helpers.PRINT_MSG(player:GetFullName())
                         hungerHP.player = player
-                        helpers.CHECK_VAMPIRE(player)
-
+                        SETUP()
+                        WAIT_FOR_INIT_SETUP()
                         -- start mod/tick 
                         tickHandle = MakeActionHandle()
                         ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)
@@ -581,6 +619,9 @@ pcall(function()
                         helpers.PRINT_MSG("timeout, waiting for leaving main menu")
                         if not helpers.IS_MAIN_MENU_PRESENT() then
                             isGameReady = true
+                            SETUP()
+                            WAIT_FOR_INIT_SETUP()
+                            --in this situation player is found in tick
                             -- one-time setup here
                             --start mod/tick on timeout and leaving main menu
                             tickHandle = MakeActionHandle()
@@ -598,9 +639,6 @@ pcall(function()
 end)
 
 
-
-
-
 --hunger bar add to UI
 if config.customHungerSystem and not hookForHUDCreation then
     hookForHUDCreation = true
@@ -608,6 +646,13 @@ if config.customHungerSystem and not hookForHUDCreation then
         NotifyOnNewObject("/Game/_Dawnwalker/UI/_Unified/HUD/WBP_GameHUD.WBP_GameHUD_C", function(hud)
         ExecuteInGameThread(function()
             helpers.PRINT_MSG("Init hunger widget starting")
+            if customHunger.TRY_FIND_WIDGET() then  --found widget already
+                    if helpers.IS_VALID(player) then
+                        customHungerSystem.INIT_HUNGER_BAR(player)
+                    end
+                    return
+            end
+            
             --init widget stuff
             customHungerSystem.LOAD_HUNGER_BAR_ASSET()
             customHungerSystem.SPAWN_HUNGER_BAR()
@@ -625,7 +670,8 @@ end
 local isGameReady = false
 local failsafe = 0
 
-LoopAsync(1000, function()                
+LoopAsync(1000, function()
+    if isGameReady then return true end -- stop this loop               
     ExecuteInGameThread(function()
         if isGameReady then return end
         failsafe = failsafe + 1
@@ -635,9 +681,11 @@ LoopAsync(1000, function()
             helpers.PRINT_MSG("Game ready")
             -- one-time setup here
             player = controller.Pawn
+            helpers.PRINT_MSG("Game ready player:")
+            helpers.PRINT_MSG(player:GetFullName())
             hungerHP.player = player
-            helpers.CHECK_VAMPIRE(player)
             SETUP()
+            WAIT_FOR_INIT_SETUP()
             -- start mod/tick 
             tickHandle = MakeActionHandle()
             ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)
@@ -646,7 +694,9 @@ LoopAsync(1000, function()
             if not helpers.IS_MAIN_MENU_PRESENT() then
                 isGameReady = true
                 SETUP()
+                WAIT_FOR_INIT_SETUP()
                 -- one-time setup here
+                --player is found in tick
                 --start mod/tick on timeout and leaving main menu
                 tickHandle = MakeActionHandle()
                 ExecuteInGameThreadWithDelay(tickHandle, 3000, TICK)

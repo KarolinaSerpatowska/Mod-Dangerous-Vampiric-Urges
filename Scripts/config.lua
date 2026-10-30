@@ -88,7 +88,7 @@ config.FIVE_SEGMENTS_PERCENTS = {
 ------------------------------------------------------------
 -- CUSTOM HUNGER SYSTEM WITH BAR ================================ THIS IS WIP DON"T ENABLE THIS - IT WILL CRASH/GIVE ERRORS
 ------------------------------------------------------------
-config.customHungerSystem = false
+config.customHungerSystem = true
 
 
 
@@ -168,7 +168,7 @@ function config.applyConfig()
     config.debug = c.debug == "1"
 
     if config.debug then
-        print("APPLYING CONFIG")
+        print("[Dangerous Vampiric Urges] Applied config")
     end
 
 end

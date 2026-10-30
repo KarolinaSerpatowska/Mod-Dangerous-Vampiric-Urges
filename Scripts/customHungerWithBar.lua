@@ -8,14 +8,20 @@ local AssetRegistryHelpers = nil
 local AssetRegistry = nil
 
 -- /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget
+-- /Game/Mods/DangerousVampiricUrges/GA_ModVampireUrgesHelper
 local modNameNoExtension = "DangerousVampiricUrges"
 
 local hungerBarAsset = nil
+local GAHelperAsset = nil
+
+local drinkBloodTag = "DangerousVampiricUrges.DrinkBlood"
 
 local looping = false
 local drinkBlood = false
 
 customHunger.hungerBarWidget = nil
+customHunger.hungerGAListener = nil
+
 customHunger.currentHungerAmount = 0
 customHunger.maxHungerAmount = 0
 
@@ -55,7 +61,7 @@ function customHunger.LOAD_HUNGER_BAR_ASSET()
     }
 
     hungerBarAsset = AssetRegistryHelpers:GetAsset(AssetData)
-    
+
     if not helpers.IS_VALID(hungerBarAsset) then
         helpers.PRINT_MSG(string.format("hunger bar asset is not valid"))
         return
@@ -81,7 +87,7 @@ function customHunger.SPAWN_HUNGER_BAR()
         customHunger.hungerBarWidget = WidgetBlueprintLibrary:Create(world, hungerBarAsset, controller)
          helpers.PRINT_MSG("widget created")
     end
-    
+
     if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("widget created but not valid?") end
 
 ExecuteInGameThread(function() 
@@ -118,22 +124,88 @@ function customHunger.ON_HUD()
     helpers.PRINT_MSG(string.format("found: %s", root:GetFullName()))
     helpers.PRINT_MSG("WIDGET DOESNT HAVE PARENT")
 
-    local a,b = pcall(function() root:AddChild(customHunger.hungerBarWidget) end)
-        
-    helpers.PRINT_MSG(a)
-    helpers.PRINT_MSG(b)
+    --Set size of widget
+    --customHunger.hungerBarWidget:ChangeScale(32,120)
+
+    pcall(function() root:AddChild(customHunger.hungerBarWidget) end)
+
     helpers.PRINT_MSG("WIDGET ADDED")
-
-    --set to fill
-    --local slot = customHunger.hungerBarWidget.Slot
-        --slot:SetHorizontalAlignment(0)
-        --slot:SetVerticalAlignment(0)
-
 
     --debug
     if helpers.IS_VALID(customHunger.hungerBarWidget:GetParent()) then
         helpers.PRINT_MSG("WIDGET HAS PARENT - no adding")
     end
+
+end
+------------------------------------------------------------
+-- LOAD ASSET custom helper GA 
+------------------------------------------------------------
+local function LOAD_GA_HELPER_ASSET()
+    if not helpers.IS_VALID(AssetRegistry) or not helpers.IS_VALID(AssetRegistryHelpers) then
+        CacheAssetRegistry()
+    end
+
+    -- load asset
+    local AssetData = {
+        ["PackageName"] = UEHelpers.FindOrAddFName(string.format("/Game/Mods/%s/GA_ModVampireUrgesHelper", modNameNoExtension)),
+        ["AssetName"] = UEHelpers.FindOrAddFName("GA_ModVampireUrgesHelper_C"),
+    }
+
+    GAHelperAsset = AssetRegistryHelpers:GetAsset(AssetData)
+
+    if not helpers.IS_VALID(GAHelperAsset) then
+        helpers.PRINT_MSG(string.format("hunger listener asset not valid"))
+        return
+    end
+
+end
+
+------------------------------------------------------------
+-- Give custom helper GA
+------------------------------------------------------------
+function customHunger.ADD_HELPER_GA(player)
+    if not helpers.IS_VALID(player) then return end
+    if helpers.IS_VALID(customHunger.hungerGAListener) then return end --stop if exists
+
+    LOAD_GA_HELPER_ASSET()
+
+    local ASCClass = StaticFindObject("/Script/Dawnwalker.DawnwalkerAbilitySystemComponent")
+    if not ASCClass:IsValid() then 
+        helpers.PRINT_MSG("ASC Class not found")
+        return
+    end
+
+    local abilitySystemComponent = player:GetComponentByClass(ASCClass)
+    if not helpers.IS_VALID(abilitySystemComponent) then
+        helpers.PRINT_MSG("ASC not valid")
+        return 
+    end
+
+    --give ability
+   pcall(function()
+        local AbilityClass = StaticFindObject("/Game/Mods/DangerousVampiricUrges/GA_ModVampireUrgesHelper.GA_ModVampireUrgesHelper_C")
+        if not AbilityClass:IsValid() then 
+            helpers.PRINT_MSG("Ability Class not found")
+            return
+        end
+        local SpecHandle = abilitySystemComponent:K2_GiveAbility(AbilityClass, 1, -1)
+        if SpecHandle and SpecHandle ~= -1 then
+            helpers.PRINT_MSG("added my ability")
+            local activated = abilitySystemComponent:TryActivateAbility(SpecHandle, true)
+            if not activated then
+                helpers.PRINT_MSG("ability not activated")
+            else
+                helpers.PRINT_MSG("ability activated")
+            end
+        end
+        customHunger.hungerGAListener = FindFirstOf("GA_ModVampireUrgesHelper_C")
+    end)
+
+
+    if helpers.IS_VALID(customHunger.hungerGAListener) then
+        helpers.PRINT_MSG("ability is valid")
+    end
+
 
 end
 
@@ -142,19 +214,19 @@ end
 ------------------------------------------------------------
 
 function customHunger.INIT_HUNGER_BAR(player)
-    if not helpers.IS_VALID(player) then helpers.PRINT_MSG("INIT BAR: no player") return end
-    if not helpers.IS_VALID(player.BloodBar) then helpers.PRINT_MSG("INIT BAR: no blood bar") return end
-    if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("INIT BAR: widget not valid") return end
+    if not helpers.IS_VALID(player) then helpers.PRINT_MSG("INIT BAR: no player") return false end
+    if not helpers.IS_VALID(player.BloodBar) then helpers.PRINT_MSG("INIT BAR: no blood bar") return false end
+    if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("INIT BAR: widget not valid") return false end
 
 
     --don't init if already was inited
-    if customHunger.maxHungerAmount ~= 0 then return end
+    if customHunger.maxHungerAmount ~= 0 then return true end
 
     customHunger.maxHungerAmount = player.BloodBar:GetBloodBarLength()
 
      if customHunger.maxHungerAmount == 0 then
         helpers.PRINT_MSG("INIT BAR: blood bar is zero")
-        return
+        return false
     end
 
     customHunger.currentHungerAmount = customHunger.maxHungerAmount / 2
@@ -164,7 +236,7 @@ function customHunger.INIT_HUNGER_BAR(player)
     end)
     
     
-
+    return true
 end
 
 ------------------------------------------------------------
@@ -185,35 +257,62 @@ end
 ------------------------------------------------------------
 
 function customHunger.TRY_FIND_WIDGET()
-    if helpers.IS_VALID(customHunger.hungerBarWidget) then return end
+    if helpers.IS_VALID(customHunger.hungerBarWidget) then return true end
 
     customHunger.hungerBarWidget = FindFirstOf("WBP_BloodWidget_C")
-    if helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("FOUND WIDGET") return end
+    if helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("FOUND WIDGET") return true end
 
+    return false
 end
 
-local function CHANGE_POSITION()
-    if not helpers.IS_VALID(customHunger.hungerBarWidget) then helpers.PRINT_MSG("NOT VALID WIDGET WTF") return end
-    
-        customHunger.hungerBarWidget:SetVisibility(0)
-        customHunger.hungerBarWidget:InvalidateLayoutAndVolatility()
-        customHunger.hungerBarWidget:ForceLayoutPrepass()
+------------------------------------------------------------
+-- Init Setup
+------------------------------------------------------------
+function customHunger.INIT_SETUP(player)
+    if not helpers.IS_VALID(player) then return false end
+    helpers.PRINT_MSG("Do init setup in game")
+    --give helper
+    customHunger.ADD_HELPER_GA(player)
+    local giveAbility = helpers.IS_VALID(customHunger.hungerGAListener)
 
-      local NewPadding = {
-           Left = 150,
-            Top = 100.0
-        }
+    local findWidget = customHunger.TRY_FIND_WIDGET()
+    --if hunger bar exists then find it --this should find widget when mod restarts during gameplay
+    if not findWidget then --hunger bar is not created
+        customHungerSystem.LOAD_HUNGER_BAR_ASSET()
+        customHungerSystem.SPAWN_HUNGER_BAR()
+        customHungerSystem.ON_HUD()
+        findWidget = helpers.IS_VALID(customHunger.hungerBarWidget)
+    end
 
-        local WTF = customHunger.hungerBarWidget.Slot
-        WTF:SetSize(NewPadding)
-        WTF.Size.SizeRule = 1
-        WTF:SetHorizontalAlignment(0)
-        WTF:SetVerticalAlignment(0)
-
-        helpers.PRINT_MSG("POSITIONING")
-
+    local initBar = customHungerSystem.INIT_HUNGER_BAR(player)
+    local hungerBarOnHUD = helpers.IS_VALID(customHunger.hungerBarWidget:GetParent())
 
 
+
+    if initBar and giveAbility and findWidget and hungerBarOnHUD then
+        helpers.PRINT_MSG("Init done")
+        return true
+    end
+
+    --stupid debug
+    if not initBar then 
+        helpers.PRINT_MSG("Init bar false")
+    end
+
+    if not giveAbility then 
+        helpers.PRINT_MSG("give ability false")
+    end
+
+    if not findWidget then 
+        helpers.PRINT_MSG("findWidget false")
+    end
+
+    if not hungerBarOnHUD then 
+        helpers.PRINT_MSG("bar on hud false")
+    end
+
+
+    return false
 end
 
 ------------------------------------------------------------
@@ -284,13 +383,18 @@ function customHunger.HUNGER_BAR_ON_NIGHT_START(player)
 end
 
 return customHunger
-
 ------------------------------------------------------------
 -- MY TRASH NOTES
 ------------------------------------------------------------
 --MY WIDGET
 --Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:ChangeScale
 --Function /Game/Mods/DangerousVampiricUrges/WBP_BloodWidget.WBP_BloodWidget_C:SetCurrentBarValue
+
+--GA helper
+--GA_ModVampireUrgesHelper_C
+--Function /Game/Mods/DangerousVampiricUrges/GA_ModVampireUrgesHelper.GA_ModVampireUrgesHelper_C:OnGameplayTagAdded
+
+
 
 --Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedHealthOrBloodCost
 --Function /Script/DogwoodCombat.CombatFocusVampireAbility:GetBloodDrinkValueToHeal
@@ -301,12 +405,6 @@ return customHunger
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStopped
 --Function /Script/Dawnwalker.DawnwalkerPlayerCharacter:OnDrinkBloodSubsystemBloodDrinkingStarted
 --Function /Game/_Dawnwalker/UI/_Unified/HUD/PlayerStatPanel/WBP_HUD_VampireStats_BloodSegment.WBP_HUD_VampireStats_BloodSegment_C:CalculateAndShowCostPercentage
---VampireStats
 
 --Function /Script/DogwoodUI.HUDManagerSubsystem:IsHUDVisible
 --Function /Script/DogwoodUI.HUDManagerSubsystem:SetHUDVisible
-
-
-
--- GE for healing
---GE_ShadowBiteHeal_C /Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GE_ShadowBiteHeal.Default__GE_ShadowBiteHeal_C
