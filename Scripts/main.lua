@@ -22,6 +22,12 @@ dialogueHooks = false
 hungerLVLChangeHooks = false
 drinkingBloodHooks = false
 
+combatComponent = nil
+startAbility= false
+givenFreePoint =false
+shadowstepBiteAbility = nil
+focusAbilitiesSubsystem = nil
+
 ------------------------------------------------------------
 -- RUN THIS ONCE PER TICK REMOVE?
 ------------------------------------------------------------
@@ -123,12 +129,12 @@ local function DEBUG_BUTTONS()
 
               
 
+                
 
 
 
-
-                player.BloodBar:SetBloodPercent(TargetBloodPercent)
-               hungerHP.ON_BLOOD_BAR_SETTING()
+               -- player.BloodBar:SetBloodPercent(TargetBloodPercent)
+              -- hungerHP.ON_BLOOD_BAR_SETTING()
             end)
 
 
@@ -439,20 +445,132 @@ end
             pcall(function()
                 RegisterHook("/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:ExecuteUbergraph_GA_ShadowstepBite", function(self, EntryPoint)
                     if not config.customHungerSystem then return end
+                    
                     local ID = EntryPoint:get()
                     if ID == 1584 then --/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:OnBloodDrinkingStarted
                         helpers.PRINT_MSG("VORACIOUS BITE: BLOOD START")
+                        
                         customHunger.START_STOP_LOOP_BLOOD(true)
+
+
                     end
 
                     if ID == 1248 then --/Game/_Dawnwalker/Combat/Focus/Vampire/ShadowstepBite/GA_ShadowstepBite.GA_ShadowstepBite_C:OnBloodDrinkingEnded
                         helpers.PRINT_MSG("VORACIOUS BITE: BLOOD END")
                          customHunger.START_STOP_LOOP_BLOOD(false)
+
+
+                       
+                    
+                         
                     end
                     
                 end)
             end)
 
+
+
+
+------------------------------------------------------------
+-- VORACIOUS BITE - free cost stuff
+------------------------------------------------------------
+            --still doesnt fire ability, just prevents UI inactive icon
+            pcall(function()
+            RegisterHook("/Script/DogwoodFocus.FocusAbilityBase:CanBeActivated", function(self, Instigator, Target, AbilityActivationOutcome, AbilityCostOutcomeMask) 
+             local ClassName = self:get():GetFullName()
+                --helpers.PRINT_MSG("Funkcja wywołana przez klasę: " .. ClassName)
+               
+                if string.find(ClassName, "GA_ShadowstepBite_C") then
+                    if not helpers.IS_VALID(Target:get()) then return end --no target
+                    if AbilityActivationOutcome:get() == 12 then -- when this have cost complaint
+                      --  helpers.PRINT_MSG("Setting outcome to 0")
+                        AbilityActivationOutcome:set(0) --set to none
+                    end
+                    
+                    if AbilityCostOutcomeMask:get() == 4 then
+                       -- helpers.PRINT_MSG("GA_ShadowstepBite_C! cost to 0")
+                        AbilityCostOutcomeMask:set(0) -- bypass cost check
+                    end
+
+                    if AbilityActivationOutcome:get() == 0 and AbilityCostOutcomeMask:get() == 0 then -- if target is valid then allow ability
+                        --helpers.PRINT_MSG("GA_ShadowstepBite_C! cost bypass")
+                        return true
+                    end
+
+
+                end
+            
+            end) 
+
+            end)
+
+            --this allows for activation of the ability without cost
+            pcall(function()
+            RegisterHook("/Script/DogwoodCombat.CombatFocusComponent:TryPlanAbility",
+            function(self, Ability)
+                local ClassName = Ability:get():GetFullName()
+                if string.find(ClassName, "GA_ShadowstepBite_C") then
+                    combatComponent = self:get() -- this always should be players comp
+                    if not helpers.IS_VALID(focusAbilitiesSubsystem) then
+                        focusAbilitiesSubsystem = FindFirstOf("FocusAbilitiesSubsystem")
+                        if not helpers.IS_VALID(focusAbilitiesSubsystem) then helpers.PRINT_MSG("Focus abilities subsystem not valid") end
+                    end
+
+                    if not combatComponent:IsBlockedByAbility() and not combatComponent:IsExecuting() and not focusAbilitiesSubsystem:GetIsShadowStormSlowMoEnabled() then --can do ability?
+                        if not combatComponent:CanPlanNextChargeCostAbility(1) then --can't use ability with cost 1
+                            --here don't give free cost, because we are adding free 1 point
+                            if not givenFreePoint then 
+                                combatComponent:SetSlotsChargedOverride(1) --give 1 permament focus slot, doesn't remove slots if player has more then 1
+                                givenFreePoint = true
+                                helpers.PRINT_MSG("Cost not enough - Give action point")
+                            end
+                            helpers.PRINT_MSG("Cant use ability cost to big = start ability = true")
+                            startAbility = true
+                            return true
+                        else --can use ability with cost 1
+                            helpers.PRINT_MSG("Cost fine")
+                            if not givenFreePoint then -- slots not given
+                                customHunger.hungerGAListener:GiveFreeActionTag() --give free cost tag
+                            end
+                        end
+
+                    end
+                    --Function /Game/Mods/DangerousVampiricUrges/GA_ModVampireUrgesHelper.GA_ModVampireUrgesHelper_C:GiveFreeActionTag
+                end
+
+                end, function(success, self, Ability)
+                    local ClassName = Ability:get():GetFullName()
+                    if string.find(ClassName, "GA_ShadowstepBite_C") then
+                        if startAbility then
+                            helpers.PRINT_MSG("Before delay")
+                            shadowstepBiteAbility = Ability:get()
+                            ExecuteInGameThreadWithDelay(100, function()
+                                helpers.PRINT_MSG("Try plan ability shadowstepBite = again")
+                                startAbility = false
+                                combatComponent:TryPlanAbility(shadowstepBiteAbility)
+                                if givenFreePoint then --if slot given
+                                    helpers.PRINT_MSG("Reset slot override")
+                                    combatComponent:ResetSlotsChargedOverride()
+                                    givenFreePoint = false
+                                end
+                            end)
+                        end        
+                    end
+--Class /Script/DogwoodFocus.FocusAbilitiesSubsystem
+--FocusAbilitiesSubsystem /Game/Map_Blockout_Valley/Blockout_Valley.Blockout_Valley:FocusAbilitiesSubsystem_2147480371
+--Function /Script/DogwoodFocus.FocusAbilitiesSubsystem:GetCurrentFocusAbility should be none
+--Function /Script/DogwoodFocus.FocusAbilitiesSubsystem:GetIsShadowStormSlowMoEnabled should false
+                end)
+            --Function /Script/GameplayAbilities.AbilitySystemBlueprintLibrary:IsGameplayAbilityActive
+            end)
+------------------------------------------------------------
+------------------------------------------------------------
+ --Function /Script/DogwoodCombat.CombatFocusComponent:CanPlanNextChargeCostAbility this takes cost float
+--Function /Script/DogwoodCombat.CombatFocusComponent:IsExecuting doesnt have input returns bool
+
+--Function /Script/DogwoodCombat.PlayerCombatComponent:GainActionSlotsForHeal
+--Function /Script/DogwoodCombat.CombatFocusComponent:ExecutePlan
+--Function /Script/DogwoodCombat.CombatFocusComponent:GetOverallPlannedFocusChargeCost
 
             drinkingBloodHooks = true
 
@@ -463,14 +581,53 @@ end
 --GE_BloodDrinkOpenWorldRegen
 --GE_BloodDrinkOpenWorldRegen_WithDuration
 
+--Function /Script/DogwoodCombat.CombatFocusComponent:CanPlanNextChargeCostAbility
 --Function /Script/DogwoodCombat.CombatFocusVampireAbility:GetBloodDrinkValueToHeal
 --Function /Script/DogwoodFocus.FocusAbilityBase:GetHealthCost
 --Function /Script/DogwoodFocus.FocusAbilityBase:GetHealthPercentageCost
 --Function /Script/DogwoodCombat.CombatComponentBase:UnlockHealth
 
+--Function /Script/DogwoodCombat.CombatFocusComponent:SetSlotsChargedOverride -- this sets current slots, doesnt remove if more
+--Function /Script/DogwoodCombat.CombatFocusComponent:ResetSlotsChargedOverride -- reset
 
 
---still need to find for when dialogue is drinking (ambrus?)
+--Function /Script/GameplayAbilities.AbilitySystemComponent:BP_ApplyGameplayEffectToTarget
+--Function /Script/GameplayAbilities.AbilitySystemComponent:BP_ApplyGameplayEffectToSelf
+--Function /Script/GameplayAbilities.AbilitySystemComponent:BP_ApplyGameplayEffectSpecToTarget
+--Function /Script/GameplayAbilities.AbilitySystemComponent:BP_ApplyGameplayEffectSpecToSelf
+--Function /Script/GameplayAbilities.AbilitySystemComponent:TryActivateAbility
+--Function /Script/GameplayAbilities.AbilitySystemComponent:TryActivateAbilitiesByTag
+--Function /Script/GameplayAbilities.AbilitySystemComponent:TryActivateAbilityByClass
+--Function /Script/GameplayAbilities.AbilitySystemComponent:UpdateActiveGameplayEffectSetByCallerMagnitude
+--Function /Script/GameplayAbilities.AbilitySystemComponent:UpdateActiveGameplayEffectSetByCallerMagnitudes
+
+--Function /Script/GameplayAbilities.GameplayAbility:BP_ApplyGameplayEffectToTarget
+--Function /Script/GameplayAbilities.GameplayAbility:BP_ApplyGameplayEffectToOwner
+--Function /Script/GameplayAbilities.GameplayAbility:GetContextFromOwner
+--Function /Script/GameplayAbilities.GameplayAbility:K2_ApplyGameplayEffectSpecToOwner
+--Function /Script/GameplayAbilities.GameplayAbility:K2_ApplyGameplayEffectSpecToTarget
+--Function /Script/GameplayAbilities.GameplayAbility:K2_CanActivateAbility
+--Function /Script/GameplayAbilities.GameplayAbility:K2_CheckAbilityCost
+--Function /Script/GameplayAbilities.GameplayAbility:K2_CommitAbilityCost
+--Function /Script/GameplayAbilities.GameplayAbility:K2_CommitAbility - shadowstep works
+--Function /Script/GameplayAbilities.GameplayAbility:K2_CommitExecute
+
+--Function /Game/_Dawnwalker/UI/_Unified/HUD/CombatFocus/WBP_HUD_FocusCharge_Bar.WBP_HUD_FocusCharge_Bar_C:On Charged Action Slots Changed
+
+--Function /Script/DogwoodFocus.FocusAbilityBase:GetAbilityToActivateClass
+--Function /Script/DogwoodFocus.FocusAbilityBase:CheckCustomCondition
+--Function /Script/DogwoodFocus.FocusAbilityBase:GetEffectValueToApply
+--Function /Script/DogwoodFocus.FocusAbilityBase:AbortActionPoint
+--Function /Script/DogwoodFocus.FocusAbilitiesSubsystem:CanApplyGenericEffect
+--Function /Script/DogwoodFocus.FocusAbilityBase:GetAbilityIdentificationTag
+--Function /Script/DogwoodFocus.FocusAbilityBase:GetCostInChargeSlots
+--Function /Script/DogwoodFocus.FocusAbilityBase:IsAbilityPassive
+--Function /Script/DogwoodCombat.CombatFocusAbilityBase:MakeActiveAbilityEffectSpecHandle
+--Function /Script/DogwoodCombat.CombatFocusAbilityBase:MakeActiveAbilityEffectSpecHandleBasic
+
+
+
+--still need to find for when dialogue is drinking
 -- another thing items
 
 --Function /Script/Dawnwalker.DrinkBloodSubsystem:TriggerBloodDrinkingInteraction
@@ -665,6 +822,7 @@ if config.customHungerSystem and not hookForHUDCreation then
         end)
         end)
 end
+
 
 --wait for game to be ready = loaded etc.
 local isGameReady = false

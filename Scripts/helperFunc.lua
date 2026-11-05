@@ -25,7 +25,7 @@ function helpers.IS_PLAYER_PAWN(Object)
     if Object == nil then return nil end
     local Success, Result = pcall(function() return Object:GetFullName() end)
     if Success and Result ~= nil then
-        helpers.PRINT_MSG(Object:GetFullName()) 
+        --helpers.PRINT_MSG(Object:GetFullName()) 
         return string.find(Object:GetFullName(), "BP_PlayerCharacter_C_", 1, true) ~= nil 
     end
 end

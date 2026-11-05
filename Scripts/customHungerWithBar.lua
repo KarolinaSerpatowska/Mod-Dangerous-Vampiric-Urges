@@ -14,10 +14,9 @@ local modNameNoExtension = "DangerousVampiricUrges"
 local hungerBarAsset = nil
 local GAHelperAsset = nil
 
-local drinkBloodTag = "DangerousVampiricUrges.DrinkBlood"
-
 local looping = false
 local drinkBlood = false
+local abilitySystemComponent = nil
 
 customHunger.hungerBarWidget = nil
 customHunger.hungerGAListener = nil
@@ -175,7 +174,7 @@ function customHunger.ADD_HELPER_GA(player)
         return
     end
 
-    local abilitySystemComponent = player:GetComponentByClass(ASCClass)
+    abilitySystemComponent = player:GetComponentByClass(ASCClass)
     if not helpers.IS_VALID(abilitySystemComponent) then
         helpers.PRINT_MSG("ASC not valid")
         return 
@@ -287,8 +286,6 @@ function customHunger.INIT_SETUP(player)
     local initBar = customHungerSystem.INIT_HUNGER_BAR(player)
     local hungerBarOnHUD = helpers.IS_VALID(customHunger.hungerBarWidget:GetParent())
 
-
-
     if initBar and giveAbility and findWidget and hungerBarOnHUD then
         helpers.PRINT_MSG("Init done")
         return true
@@ -313,6 +310,13 @@ function customHunger.INIT_SETUP(player)
 
 
     return false
+end
+
+function customHunger.TRY_ACTIVATE_ABILITY_BY_CLASS(ability)
+    if not helpers.IS_VALID(abilitySystemComponent) then  return end
+    local AbilityClass = ability:GetClass()
+    local activated = abilitySystemComponent:TryActivateAbilityByClass(AbilityClass, true)
+    helpers.PRINT_MSG(activated)
 end
 
 ------------------------------------------------------------
