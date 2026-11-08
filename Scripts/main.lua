@@ -67,6 +67,9 @@ local function WAIT_FOR_INIT_SETUP()
 
 
             -- init custom hunger system
+            if not config.customHungerSystem then --if disabled custom hunger
+                initCustomHunger = true
+            end
             if not initCustomHunger and helpers.IS_VALID(player) and config.customHungerSystem  then
                 initCustomHunger = customHunger.INIT_SETUP(player)
             end
